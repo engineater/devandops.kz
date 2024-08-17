@@ -57,6 +57,11 @@ gpgcheck=1
 gpgkey=https://pkgs.k8s.io/addons:/cri-o:/$PROJECT_PATH/rpm/repodata/repomd.xml.key
 EOF
 
+sleep 2
+sudo dnf clean all
+sudo dnf clean packages
+sudo dnf repolist
+
 ### Установите зависимости пакета из официальных репозиториев.
 sudo dnf install container-selinux -y 
 
@@ -65,11 +70,12 @@ echo '>>>> Запускаем установку cri-o'
 ### Выводим список доступных версий
 ### ### sudo dnf list --showduplicates cri-o
 sudo dnf install cri-o -y
+sleep 2
 echo '>>>> Отключаем репозитарий CRI-O'
 ### следующая команда нужна, чтобы при запуске обновления Linux "sudo dnf -y upgrade",
 ### пакеты cri-o автоматически не обновились
 sudo dnf config-manager cri-o --disable
-
+sleep 2
 
 echo '>>>> Добавляем в файл /etc/containers/registries.conf mirrors на Sonatype Nexus Repository'
 cat <<EOF | sudo tee /etc/containers/registries.conf
