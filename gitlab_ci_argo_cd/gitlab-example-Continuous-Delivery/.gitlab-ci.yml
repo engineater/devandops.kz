@@ -1,0 +1,66 @@
+stages:
+    ### сборка image и его публикация 
+    ### ### image является артефактом,
+    ### ### поэтому данный stage логически относится к "Continuous Delivery"
+    - image-build-push
+
+variables:
+  ### переменные для всех stages пайплайна
+  ##############################
+  REGISTRY: harbor.my.private
+  ### переменные $harbor_robot и $harbor_password объявлены на уровне группы проектов GitLab
+  REGISTRY_USER_NAME: $harbor_robot
+  REGISTRY_USER_PASSWORD: $harbor_password
+  PATH_TO_DOCKERFILE: source
+  BUILD_ARG_IMAGE_TAG: 9.5
+  BUILD_IMAGE_PATH: $REGISTRY/$CI_PROJECT_PATH
+  ### либо
+  # BUILD_IMAGE_PATH: $REGISTRY/$CI_PROJECT_ROOT_NAMESPACE/$CI_PROJECT_NAME
+  BUILD_IMAGE_TAG: $CI_COMMIT_REF_NAME.$CI_PIPELINE_ID.$CI_COMMIT_SHORT_SHA
+  ##############################
+
+
+default:
+    ### данный код выполняется для всех (если не указано исключение)
+    ### job'ов данного пайплайна
+    before_script:
+        ### перед выполнением job'ов
+        - echo $CI_PROJECT_NAME
+        #- printenv
+
+######################## #########################################################
+### повторяющиеся шаблоны кода лучше вынести
+### в "hidden job" имя которого начинается с точки, 
+### а позже подключать с помощью extends https://docs.gitlab.com/ci/yaml/#extends
+.build-image:
+    script:
+        ### переходим в каталог, в котором располагается Dockerfile
+        - cd $PATH_TO_DOCKERFILE
+        ### выводим информацию о git (обычно в данной команде нет необходимости)
+        - git --version
+        ### выводим информацию о текущем каталоге и его содержимом (в том числе и дочерних каталогов)
+        - pwd; ls -alR
+        ### выводим информацию о ветке commit'а на основании которого запустился пайплайн
+        - echo "Current branch name:" $CI_COMMIT_REF_NAME
+        ### наименование image, который будем собирать
+        - echo "Build image:" $IMAGE_PATH:$TAG
+        ### запускаем сборку image
+        - docker build --build-arg IMAGE_TAG=$BUILD_ARG_IMAGE_TAG --no-cache --progress plain -t $IMAGE_PATH:$TAG .
+        ### проходим аутентификацию в image registry
+        - echo -n $REGISTRY_USER_PASSWORD | docker login -u $REGISTRY_USER_NAME --password-stdin $REGISTRY
+        ### публикуем собранный image в registry
+        - docker push $IMAGE_PATH:$TAG
+        ### удаляем собранный image c docker'а в котором запускался gitlab-runner
+        - docker rmi -f $(docker images $IMAGE_PATH:$TAG --format "{{.ID}}")
+### job
+image-build-push:
+  image: docker.io/docker:28.0.4
+  ### либо
+  #image: docker.io/docker:latest
+  stage: image-build-push
+  variables:
+    ### переменные для текущего job'а
+    IMAGE_PATH: $BUILD_IMAGE_PATH
+    TAG: $BUILD_IMAGE_TAG
+  extends: .build-image
+######################## #########################################################

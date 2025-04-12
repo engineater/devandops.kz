@@ -1,0 +1,6 @@
+Dockerfile
+.git
+.gitignore
+Readme.txt
+**/__pycache__
+**.pyc
